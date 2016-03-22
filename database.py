@@ -20,7 +20,7 @@ class Database(object):
         return conn
 
     def signup_create(self, signup):
-        signup['time'] = time.time()
+        signup['time'] = int(time.time())
         conn = sqlite3.connect(self.dbfile)
         conn.execute('insert into signups values (:name, :email, :time)', signup)
         conn.commit()
