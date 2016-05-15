@@ -1,0 +1,51 @@
+{% set form_example %}
+<form action="{{ app_url }}/submit/OV74XB3VXMtjLidpNVHrXzKyus8aHX61" method="post">
+  <input type="hidden" name="next" value="https://example.com/thankyou">
+  <input type="text" name="name">
+  <input type="email" name="email">
+  <button type="submit">Submit</button>
+</form>
+{% endset %}
+
+{% block content %}
+
+<h2>How to use this service.</h2>
+
+<p>
+
+  First you will need to get a key. You should use a different key for each
+  form. The key has two parts: a secret key and a form key. The secret key
+  should be kept secret. You will need the secret key to retrieve your submitted
+  form data. Don't lose it. The form key is the public part. It goes in your
+  HTML form.
+
+</p>
+
+<p>
+
+  You can use any input names you want. They will be stored as a JSON object.
+  Use a hidden input named <code>next</code> to redirect your users after
+  submitting the form.
+
+</p>
+
+<p>
+  Go <a href="/new-key">here</a> to get a new key.
+</p>
+
+<p>
+  Go <a href="/get-data">here</a> to retrieve your submitted form data.
+</p>
+
+<h2>Example Form</h2>
+
+<p>
+
+  If your form key was <code>OV74XB3VXMtjLidpNVHrXzKyus8aHX61</code>, then your
+  HTML form might look like this.
+
+</p>
+
+<pre><code>{{ form_example|e }}</code></pre>
+
+{% endblock %}
