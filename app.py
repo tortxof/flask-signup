@@ -82,7 +82,7 @@ def signup(form_key):
         form_data = json.dumps(
             {k:v for k,v in request.form.to_dict().items() if k != 'next'}
             ),
-        time = datetime.datetime.now()
+        time = datetime.datetime.utcnow()
         )
     return redirect(request.form.get('next', 'https://www.google.com/'))
 
