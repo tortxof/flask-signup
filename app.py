@@ -79,7 +79,9 @@ def get_form_data():
 def signup(form_key):
     Signup.create(
         form_key = form_key,
-        form_data = json.dumps(request.form.to_dict()),
+        form_data = json.dumps(
+            {k:v for k,v in request.form.to_dict().items() if k != 'next'}
+            ),
         time = datetime.datetime.now()
         )
     return redirect(request.form.get('next', 'https://www.google.com/'))
