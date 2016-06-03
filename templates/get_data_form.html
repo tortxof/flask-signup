@@ -4,4 +4,10 @@
   <input type="text" name="secret_key">
   <button type="submit">Get Data</button>
 </form>
+
+<p>
+  You can also get your data using curl.
+</p>
+
+<p><code>curl '{{ config.APP_URL }}/get-data' --data 'secret_key=OV74XB3VXMtjLidpNVHrXzKyus8aHX61'</code></p>
 {% endblock %}
