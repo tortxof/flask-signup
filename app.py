@@ -53,7 +53,7 @@ def after_request(request):
 
 @app.route('/')
 def index():
-    return render_template('index.html', app_url=app.config.get('APP_URL'))
+    return render_template('index.html')
 
 @app.route('/new-key')
 def new_key():
