@@ -22,9 +22,11 @@
 
 <p>
 
-  You can use any input names you want. They will be stored as a JSON object.
-  Use a hidden input named <code>next</code> to redirect your users after
-  submitting the form.
+  You can use any input names you want, except for <code>next</code> and
+  <code>time</code>. They will be stored as a JSON object. Use a hidden input
+  named <code>next</code> to redirect your users after submitting the form. The
+  <code>time</code> field is added automatically, and stores the UTC time of the
+  submission.
 
 </p>
 
@@ -46,5 +48,27 @@
 </p>
 
 <pre><code>{{ form_example|e }}</code></pre>
+
+<h2>Example JSON Data</h2>
+
+<p>
+  This is an example response from <code>/get-data</code>.
+</p>
+
+<pre><code>{
+  "records": [
+    {
+      "email": "alice@example.com",
+      "name": "Alice",
+      "time": "2016-06-05T21:03:29.659516"
+    },
+    {
+      "email": "bob@example.com",
+      "name": "Bob",
+      "time": "2016-06-05T21:03:42.381883"
+    }
+  ]
+}
+</code></pre>
 
 {% endblock %}
