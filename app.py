@@ -95,7 +95,9 @@ def signup(form_key):
             ),
         time = datetime.datetime.utcnow()
         )
-    return redirect(request.form.get('next', 'https://www.google.com/'))
+    return redirect(
+        request.form.get('next', request.referrer or 'https://www.google.com')
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
