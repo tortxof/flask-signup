@@ -70,8 +70,19 @@ def get_form_data():
     if request.method == 'POST':
         user_secret_key = request.form.get('secret_key').encode()
         user_form_key = generate_form_key(user_secret_key)
-        signups = Signup.select().where(Signup.form_key == user_form_key.decode())
-        return jsonify(records=[json.loads(record.form_data) for record in signups])
+        signups = (
+            Signup.select()
+            .where(Signup.form_key == user_form_key.decode())
+        )
+        return jsonify(
+            records = [
+                {
+                    **json.loads(record.form_data),
+                    **{'time': record.time.isoformat()}
+                }
+                for record in signups
+            ]
+        )
     else:
         return render_template('get_data_form.html')
 
