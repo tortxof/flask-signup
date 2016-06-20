@@ -61,8 +61,8 @@ def new_key():
     user_form_key = generate_form_key(user_secret_key)
     return render_template(
         'new_key.html',
-        user_secret_key=user_secret_key.decode(),
-        user_form_key=user_form_key.decode()
+        user_secret_key = user_secret_key.decode(),
+        user_form_key = user_form_key.decode()
         )
 
 @app.route('/get-data', methods=['GET', 'POST'])
