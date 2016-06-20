@@ -65,6 +65,15 @@ def new_key():
         user_form_key = user_form_key.decode()
         )
 
+@app.route('/get-key')
+def get_key():
+    user_secret_key = base64.urlsafe_b64encode(os.urandom(24))
+    user_form_key = generate_form_key(user_secret_key)
+    return jsonify(
+        secret_key = user_secret_key.decode(),
+        form_key = user_form_key.decode()
+    )
+
 @app.route('/get-data', methods=['GET', 'POST'])
 def get_form_data():
     if request.method == 'POST':
