@@ -68,7 +68,10 @@ def new_key():
 @app.route('/get-data', methods=['GET', 'POST'])
 def get_form_data():
     if request.method == 'POST':
-        user_secret_key = request.form.get('secret_key').encode()
+        if request.is_json:
+            user_secret_key = request.get_json().get('secret_key').encode()
+        else:
+            user_secret_key = request.form.get('secret_key').encode()
         user_form_key = generate_form_key(user_secret_key)
         signups = (
             Signup.select()
