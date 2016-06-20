@@ -72,7 +72,7 @@ def get_key():
     return jsonify(
         secret_key = user_secret_key.decode(),
         form_key = user_form_key.decode()
-    )
+    ), {'Access-Control-Allow-Origin': '*'}
 
 @app.route('/get-data', methods=['GET', 'POST'])
 def get_form_data():
@@ -94,7 +94,7 @@ def get_form_data():
                 }
                 for record in signups
             ]
-        )
+        ), {'Access-Control-Allow-Origin': '*'}
     else:
         return render_template('get_data_form.html')
 
