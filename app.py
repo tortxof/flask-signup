@@ -109,7 +109,7 @@ def signup(form_key):
         )
     return redirect(
         request.form.get('next', request.referrer or 'https://www.google.com')
-    )
+    ), {'Access-Control-Allow-Origin': '*'}
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
