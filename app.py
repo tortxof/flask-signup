@@ -8,6 +8,7 @@ import base64
 
 from flask import Flask, request, redirect, g, render_template, jsonify
 from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
+from playhouse.shortcuts import model_to_dict
 
 app = Flask(__name__)
 
@@ -100,16 +101,23 @@ def get_form_data():
 
 @app.route('/submit/<form_key>', methods=['POST'])
 def signup(form_key):
-    Signup.create(
+    res_type = 'redirect'
+    if 'res_type' in request.args:
+        if request.args['res_type'] in ('redirect', 'json'):
+            res_type = request.args['res_type']
+    signup = Signup.create(
         form_key = form_key,
-        form_data = json.dumps(
-            {k:v for k,v in request.form.to_dict().items() if k != 'next'}
-            ),
+        form_data = json.dumps(request.form.to_dict()),
         time = datetime.datetime.utcnow()
         )
-    return redirect(
-        request.form.get('next', request.referrer or 'https://www.google.com')
-    ), {'Access-Control-Allow-Origin': '*'}
+    if res_type == 'redirect':
+        return redirect(
+            request.args.get('next', request.referrer or 'https://www.google.com')
+        )
+    elif res_type == 'json':
+        return jsonify(
+            json.loads(model_to_dict(signup)['form_data'])
+        ), {'Access-Control-Allow-Origin': '*'}
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
