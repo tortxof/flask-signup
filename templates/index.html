@@ -1,7 +1,6 @@
 {% extends 'layout.html' %}
 {% block content %}
-{% set form_example %}<form action="{{ config.APP_URL }}/submit/OV74XB3VXMtjLidpNVHrXzKyus8aHX61" method="post">
-  <input type="hidden" name="next" value="https://example.com/thankyou">
+{% set form_example %}<form action="{{ config.APP_URL }}/submit/OV74XB3VXMtjLidpNVHrXzKyus8aHX61?next=https://example.com/thankyou" method="post">
   <input type="text" name="name">
   <input type="email" name="email">
   <button type="submit">Submit</button>
@@ -22,11 +21,10 @@
 
 <p>
 
-  You can use any input names you want, except for <code>next</code> and
-  <code>time</code>. They will be stored as a JSON object. Use a hidden input
-  named <code>next</code> to redirect your users after submitting the form. The
-  <code>time</code> field is added automatically, and stores the time of the
-  submission in UTC.
+  You can use any input names you want. They will be stored as a JSON object.
+  Use a query string parameter named <code>next</code> to redirect your users
+  after submitting the form. If you want a JSON response instead of a redirect,
+  put <code>res_type=json</code> in your query string.
 
 </p>
 
