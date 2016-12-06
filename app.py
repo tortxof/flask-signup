@@ -215,17 +215,13 @@ def signup(form_key):
         time = datetime.datetime.utcnow()
         )
     if verified_email_token:
-        app.logger.debug('Got a valid email token', verified_email_token)
         if verified_email_token['form_key'] == form_key:
-            app.logger.debug('form_key match')
             send_form_email(
                 email_address = verified_email_token['email'],
                 form_key = verified_email_token['form_key'],
                 form_data = json.loads(signup.form_data),
                 time = signup.time,
             )
-        else:
-            app.logger.debug('form_key mismatch', verified_email_token['form_key'], form_key)
     if res_type == 'redirect':
         return redirect(
             request.args.get('next', request.referrer or 'https://www.google.com')
