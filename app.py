@@ -6,7 +6,7 @@ import json
 import hmac
 import base64
 
-from flask import Flask, request, redirect, g, render_template, jsonify
+from flask import Flask, request, redirect, url_for, g, render_template, jsonify
 from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
 from playhouse.shortcuts import model_to_dict
 import requests
@@ -76,7 +76,19 @@ def verify_email_token(email_token, app_secret_key, fernet_key):
         'form_key': generate_form_key(user_secret_key)
     }
 
-def send_email(email_address, form_key, form_data, time):
+def send_email_token(email_address, email_token):
+    requests.post(
+        'https://api.mailgun.net/v3/{domain}/messages'.format(domain=app.config['MAILGUN_DOMAIN']),
+        auth = ('api', app.config['MAILGUN_API_KEY']),
+        data = {
+            'from': '{app_url} <signup@{mailgun_domain}>'.format(app_url=app.config['APP_URL'], mailgun_domain=app.config['MAILGUN_DOMAIN']),
+            'to': email_address,
+            'subject': 'Email Token',
+            'text': 'Email Token:\n\n' + email_token,
+        },
+    )
+
+def send_form_email(email_address, form_key, form_data, time):
     requests.post(
         'https://api.mailgun.net/v3/{domain}/messages'.format(domain=app.config['MAILGUN_DOMAIN']),
         auth = ('api', app.config['MAILGUN_API_KEY']),
@@ -150,21 +162,25 @@ def get_form_data():
     else:
         return render_template('get_data_form.html')
 
-@app.route('/email-token', methods=['POST'])
+@app.route('/email-token', methods=['GET', 'POST'])
 def email_token():
-    if request.is_json:
-        email = request.get_json().get('email')
-        user_secret_key = request.get_json().get('secret_key')
+    if request.method == 'POST':
+        if request.is_json:
+            email = request.get_json().get('email')
+            user_secret_key = request.get_json().get('secret_key')
+        else:
+            email = request.form.get('email')
+            user_secret_key = request.form.get('secret_key')
+        email_token = create_email_token(
+            email,
+            user_secret_key,
+            app.config['SECRET_KEY'],
+            app.config['FERNET_KEY']
+        )
+        send_email_token(email, email_token)
+        return redirect(url_for('index'))
     else:
-        email = request.form.get('email')
-        user_secret_key = request.form.get('secret_key')
-    email_token = create_email_token(
-        email,
-        user_secret_key,
-        app.config['SECRET_KEY'],
-        app.config['FERNET_KEY']
-    )
-    return jsonify({'email_token': email_token})
+        return render_template('get_email_token.html')
 
 @app.route('/test-email-token', methods=['POST'])
 def test_email_token():
@@ -202,7 +218,7 @@ def signup(form_key):
         app.logger.debug('Got a valid email token', verified_email_token)
         if verified_email_token['form_key'] == form_key:
             app.logger.debug('form_key match')
-            send_email(
+            send_form_email(
                 email_address = verified_email_token['email'],
                 form_key = verified_email_token['form_key'],
                 form_data = json.loads(signup.form_data),

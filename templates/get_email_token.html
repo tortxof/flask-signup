@@ -1,0 +1,20 @@
+{% extends 'layout.html' %}
+{% block content %}
+<form action="/email-token" method="post">
+  <div class="form-group">
+    <label for="email_input">Email</label>
+    <input id="email_input" class="form-control" type="email" name="email" autofocus>
+  </div>
+  <div class="form-group">
+    <label for="secret_key_input">Secret Key</label>
+    <input id="secret_key_input" class="form-control" type="text" name="secret_key">
+  </div>
+  <div class="form-group">
+    <button class="btn btn-default" type="submit">Get Email Token</button>
+  </div>
+</form>
+
+<p>
+  Email token will be sent to the email address specified.
+</p>
+{% endblock %}
