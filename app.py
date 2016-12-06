@@ -6,7 +6,9 @@ import json
 import hmac
 import base64
 
-from flask import Flask, request, redirect, url_for, g, render_template, jsonify
+from flask import (
+    Flask, request, redirect, url_for, g, render_template, jsonify
+)
 from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
 from playhouse.shortcuts import model_to_dict
 import requests
@@ -54,7 +56,10 @@ def create_email_token(email, user_secret_key, app_secret_key, fernet_key):
     return URLSafeSerializer(app_secret_key).dumps(
         {
             'email': Serializer(user_secret_key).dumps(email),
-            'secret_key': Fernet(fernet_key).encrypt(user_secret_key.encode()).decode()
+            'secret_key': (
+                Fernet(fernet_key)
+                .encrypt(user_secret_key.encode()).decode()
+            )
         }
     )
 
@@ -64,7 +69,10 @@ def verify_email_token(email_token, app_secret_key, fernet_key):
     except BadSignature:
         return None
     try:
-        user_secret_key = Fernet(fernet_key).decrypt(email_obj['secret_key'].encode()).decode()
+        user_secret_key = (
+            Fernet(fernet_key)
+            .decrypt(email_obj['secret_key'].encode()).decode()
+        )
     except InvalidToken:
         return None
     try:
@@ -78,10 +86,19 @@ def verify_email_token(email_token, app_secret_key, fernet_key):
 
 def send_email_token(email_address, email_token):
     requests.post(
-        'https://api.mailgun.net/v3/{domain}/messages'.format(domain=app.config['MAILGUN_DOMAIN']),
+        (
+            'https://api.mailgun.net/v3/{domain}/messages'
+            .format(domain=app.config['MAILGUN_DOMAIN'])
+        ),
         auth = ('api', app.config['MAILGUN_API_KEY']),
         data = {
-            'from': '{app_url} <signup@{mailgun_domain}>'.format(app_url=app.config['APP_URL'], mailgun_domain=app.config['MAILGUN_DOMAIN']),
+            'from': (
+                '{app_url} <signup@{mailgun_domain}>'
+                .format(
+                    app_url=app.config['APP_URL'],
+                    mailgun_domain=app.config['MAILGUN_DOMAIN'],
+                )
+            ),
             'to': email_address,
             'subject': 'Email Token',
             'text': 'Email Token:\n\n' + email_token,
@@ -90,10 +107,19 @@ def send_email_token(email_address, email_token):
 
 def send_form_email(email_address, form_key, form_data, time):
     requests.post(
-        'https://api.mailgun.net/v3/{domain}/messages'.format(domain=app.config['MAILGUN_DOMAIN']),
+        (
+            'https://api.mailgun.net/v3/{domain}/messages'
+            .format(domain=app.config['MAILGUN_DOMAIN'])
+        ),
         auth = ('api', app.config['MAILGUN_API_KEY']),
         data = {
-            'from': '{app_url} <signup@{mailgun_domain}>'.format(app_url=app.config['APP_URL'], mailgun_domain=app.config['MAILGUN_DOMAIN']),
+            'from': (
+                '{app_url} <signup@{mailgun_domain}>'
+                .format(
+                    app_url=app.config['APP_URL'],
+                    mailgun_domain=app.config['MAILGUN_DOMAIN'],
+                )
+            ),
             'to': email_address,
             'subject': 'New Form Submission',
             'text': form_data_to_text(form_data),
@@ -224,7 +250,10 @@ def signup(form_key):
             )
     if res_type == 'redirect':
         return redirect(
-            request.args.get('next', request.referrer or 'https://www.google.com')
+            request.args.get(
+                'next',
+                request.referrer or 'https://www.google.com'
+            )
         )
     elif res_type == 'json':
         return jsonify(
