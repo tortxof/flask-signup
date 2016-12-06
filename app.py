@@ -9,13 +9,17 @@ import base64
 from flask import Flask, request, redirect, g, render_template, jsonify
 from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
 from playhouse.shortcuts import model_to_dict
+import requests
+from itsdangerous import Serializer, URLSafeSerializer
+from cryptography.fernet import Fernet, InvalidToken
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-
 app.config['APP_URL'] = os.environ.get('APP_URL')
-
+app.config['MAILGUN_API_KEY'] = os.environ.get('MAILGUN_API_KEY')
+app.config['MAILGUN_DOMAIN'] = os.environ.get('MAILGUN_DOMAIN')
+app.config['FERNET_KEY'] = os.environ.get('FERNET_KEY')
 app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
 
 db = SqliteDatabase('/data/data.db')
@@ -41,6 +45,29 @@ def generate_form_key(user_secret_key):
         digestmod='sha256'
         ).digest()
     return base64.urlsafe_b64encode(user_form_key[:24])
+
+def create_email_token(email, user_secret_key, app_secret_key, fernet_key):
+    return URLSafeSerializer(app_secret_key).dumps(
+        {
+            'email': Serializer(user_secret_key).dumps(email),
+            'secret_key': Fernet(fernet_key).encrypt(user_secret_key.encode()).decode()
+        }
+    )
+
+def verify_email_token(email_token, app_secret_key, fernet_key):
+    try:
+        obj = URLSafeSerializer(app_secret_key).loads(email_token)
+    except BadSignature:
+        return None
+    try:
+        user_secret_key = Fernet(fernet_key).decrypt(obj['secret_key'].encode())
+    except InvalidToken:
+        return None
+    try:
+        return Serializer(user_secret_key).loads(obj['email'])
+    except BadSignature:
+        return None
+
 
 @app.before_request
 def before_request():
@@ -98,6 +125,35 @@ def get_form_data():
         ), {'Access-Control-Allow-Origin': '*'}
     else:
         return render_template('get_data_form.html')
+
+@app.route('/email-token', methods=['POST'])
+def email_token():
+    if request.is_json:
+        email = request.get_json().get('email')
+        user_secret_key = request.get_json().get('secret_key')
+    else:
+        email = request.form.get('email')
+        user_secret_key = request.form.get('secret_key')
+    email_token = create_email_token(
+        email,
+        user_secret_key,
+        app.config['SECRET_KEY'],
+        app.config['FERNET_KEY']
+    )
+    return jsonify({'email_token': email_token})
+
+@app.route('/test-email-token', methods=['POST'])
+def test_email_token():
+    if request.is_json:
+        email_token = request.get_json().get('email_token')
+    else:
+        email_token = request.form.get('email_token')
+    email = verify_email_token(
+        email_token,
+        app.config['SECRET_KEY'],
+        app.config['FERNET_KEY'],
+    )
+    return jsonify({'email': email})
 
 @app.route('/submit/<form_key>', methods=['POST'])
 def signup(form_key):
