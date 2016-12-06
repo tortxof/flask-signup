@@ -10,7 +10,7 @@ from flask import Flask, request, redirect, g, render_template, jsonify
 from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
 from playhouse.shortcuts import model_to_dict
 import requests
-from itsdangerous import Serializer, URLSafeSerializer
+from itsdangerous import Serializer, URLSafeSerializer, BadSignature
 from cryptography.fernet import Fernet, InvalidToken
 
 app = Flask(__name__)
@@ -37,14 +37,18 @@ db.connect()
 db.create_tables([Signup], safe=True)
 db.close()
 
+def generate_secret_key():
+    """Generate a random secret key."""
+    return base64.urlsafe_b64encode(os.urandom(24)).decode()
+
 def generate_form_key(user_secret_key):
     """Generate user's public form key from their secret key."""
     user_form_key = hmac.new(
         app.config['SECRET_KEY'].encode(),
-        msg=user_secret_key,
+        msg=user_secret_key.encode(),
         digestmod='sha256'
         ).digest()
-    return base64.urlsafe_b64encode(user_form_key[:24])
+    return base64.urlsafe_b64encode(user_form_key[:24]).decode()
 
 def create_email_token(email, user_secret_key, app_secret_key, fernet_key):
     return URLSafeSerializer(app_secret_key).dumps(
@@ -56,18 +60,38 @@ def create_email_token(email, user_secret_key, app_secret_key, fernet_key):
 
 def verify_email_token(email_token, app_secret_key, fernet_key):
     try:
-        obj = URLSafeSerializer(app_secret_key).loads(email_token)
+        email_obj = URLSafeSerializer(app_secret_key).loads(email_token)
     except BadSignature:
         return None
     try:
-        user_secret_key = Fernet(fernet_key).decrypt(obj['secret_key'].encode())
+        user_secret_key = Fernet(fernet_key).decrypt(email_obj['secret_key'].encode()).decode()
     except InvalidToken:
         return None
     try:
-        return Serializer(user_secret_key).loads(obj['email'])
+        email = Serializer(user_secret_key).loads(email_obj['email'])
     except BadSignature:
         return None
+    return {
+        'email': email,
+        'form_key': generate_form_key(user_secret_key)
+    }
 
+def send_email(email_address, form_key, form_data, time):
+    requests.post(
+        'https://api.mailgun.net/v3/{domain}/messages'.format(domain=app.config['MAILGUN_DOMAIN']),
+        auth = ('api', app.config['MAILGUN_API_KEY']),
+        data = {
+            'from': '{app_url} <signup@{mailgun_domain}>'.format(app_url=app.config['APP_URL'], mailgun_domain=app.config['MAILGUN_DOMAIN']),
+            'to': email_address,
+            'subject': 'New Form Submission',
+            'text': form_data_to_text(form_data),
+        },
+    )
+
+def form_data_to_text(form_data):
+    return ''.join(
+        k + ':\n' + v + '\n\n' for k, v in form_data.items()
+    )
 
 @app.before_request
 def before_request():
@@ -85,34 +109,34 @@ def index():
 
 @app.route('/new-key')
 def new_key():
-    user_secret_key = base64.urlsafe_b64encode(os.urandom(24))
+    user_secret_key = generate_secret_key()
     user_form_key = generate_form_key(user_secret_key)
     return render_template(
         'new_key.html',
-        user_secret_key = user_secret_key.decode(),
-        user_form_key = user_form_key.decode()
+        user_secret_key = user_secret_key,
+        user_form_key = user_form_key
         )
 
 @app.route('/get-key')
 def get_key():
-    user_secret_key = base64.urlsafe_b64encode(os.urandom(24))
+    user_secret_key = generate_secret_key()
     user_form_key = generate_form_key(user_secret_key)
     return jsonify(
-        secret_key = user_secret_key.decode(),
-        form_key = user_form_key.decode()
+        secret_key = user_secret_key,
+        form_key = user_form_key
     ), {'Access-Control-Allow-Origin': '*'}
 
 @app.route('/get-data', methods=['GET', 'POST'])
 def get_form_data():
     if request.method == 'POST':
         if request.is_json:
-            user_secret_key = request.get_json().get('secret_key').encode()
+            user_secret_key = request.get_json().get('secret_key')
         else:
-            user_secret_key = request.form.get('secret_key').encode()
+            user_secret_key = request.form.get('secret_key')
         user_form_key = generate_form_key(user_secret_key)
         signups = (
             Signup.select()
-            .where(Signup.form_key == user_form_key.decode())
+            .where(Signup.form_key == user_form_key)
         )
         return jsonify(
             records = [
@@ -161,11 +185,31 @@ def signup(form_key):
     if 'res_type' in request.args:
         if request.args['res_type'] in ('redirect', 'json'):
             res_type = request.args['res_type']
+    if 'email' in request.args:
+        verified_email_token = verify_email_token(
+            request.args['email'],
+            app.config['SECRET_KEY'],
+            app.config['FERNET_KEY'],
+        )
+    else:
+        verified_email_token = False
     signup = Signup.create(
         form_key = form_key,
         form_data = json.dumps(request.form.to_dict()),
         time = datetime.datetime.utcnow()
         )
+    if verified_email_token:
+        app.logger.debug('Got a valid email token', verified_email_token)
+        if verified_email_token['form_key'] == form_key:
+            app.logger.debug('form_key match')
+            send_email(
+                email_address = verified_email_token['email'],
+                form_key = verified_email_token['form_key'],
+                form_data = json.loads(signup.form_data),
+                time = signup.time,
+            )
+        else:
+            app.logger.debug('form_key mismatch', verified_email_token['form_key'], form_key)
     if res_type == 'redirect':
         return redirect(
             request.args.get('next', request.referrer or 'https://www.google.com')
