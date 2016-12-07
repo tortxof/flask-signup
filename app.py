@@ -52,37 +52,21 @@ def generate_form_key(user_secret_key):
         ).digest()
     return base64.urlsafe_b64encode(user_form_key[:24]).decode()
 
-def create_email_token(email, user_secret_key, app_secret_key, fernet_key):
-    return URLSafeSerializer(app_secret_key).dumps(
+def create_email_token(email, user_secret_key, fernet_key):
+    return Fernet(fernet_key).encrypt(json.dumps(
         {
-            'email': Serializer(user_secret_key).dumps(email),
-            'secret_key': (
-                Fernet(fernet_key)
-                .encrypt(user_secret_key.encode()).decode()
-            )
+            'email': email,
+            'form_key': generate_form_key(user_secret_key)
         }
-    )
+    ).encode()).decode()
 
-def verify_email_token(email_token, app_secret_key, fernet_key):
+def verify_email_token(email_token, fernet_key):
     try:
-        email_obj = URLSafeSerializer(app_secret_key).loads(email_token)
-    except BadSignature:
-        return None
-    try:
-        user_secret_key = (
-            Fernet(fernet_key)
-            .decrypt(email_obj['secret_key'].encode()).decode()
+        return json.loads(
+            Fernet(fernet_key).decrypt(email_token.encode()).decode()
         )
     except InvalidToken:
         return None
-    try:
-        email = Serializer(user_secret_key).loads(email_obj['email'])
-    except BadSignature:
-        return None
-    return {
-        'email': email,
-        'form_key': generate_form_key(user_secret_key)
-    }
 
 def send_email_token(email_address, email_token):
     requests.post(
@@ -200,7 +184,6 @@ def email_token():
         email_token = create_email_token(
             email,
             user_secret_key,
-            app.config['SECRET_KEY'],
             app.config['FERNET_KEY']
         )
         send_email_token(email, email_token)
@@ -216,7 +199,6 @@ def test_email_token():
         email_token = request.form.get('email_token')
     email = verify_email_token(
         email_token,
-        app.config['SECRET_KEY'],
         app.config['FERNET_KEY'],
     )
     return jsonify({'email': email})
@@ -230,7 +212,6 @@ def signup(form_key):
     if 'email' in request.args:
         verified_email_token = verify_email_token(
             request.args['email'],
-            app.config['SECRET_KEY'],
             app.config['FERNET_KEY'],
         )
     else:
