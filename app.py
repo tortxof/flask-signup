@@ -86,6 +86,11 @@ def send_email_token(email_address, email_token):
             'to': email_address,
             'subject': 'Email Token',
             'text': 'Email Token:\n\n' + email_token,
+            'html': render_template(
+                'email_token.html',
+                title='Email Token',
+                email_token=email_token,
+            )
         },
     )
 
