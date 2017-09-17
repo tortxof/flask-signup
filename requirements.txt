@@ -1,4 +1,4 @@
 flask
-peewee
+boto3
 requests
 cryptography

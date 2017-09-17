@@ -9,8 +9,9 @@ import base64
 from flask import (
     Flask, request, redirect, url_for, g, render_template, jsonify
 )
-from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
-from playhouse.shortcuts import model_to_dict
+# from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
+# from playhouse.shortcuts import model_to_dict
+import boto3
 import requests
 from itsdangerous import Serializer, URLSafeSerializer, BadSignature
 from cryptography.fernet import Fernet, InvalidToken
@@ -24,20 +25,40 @@ app.config['MAILGUN_DOMAIN'] = os.environ.get('MAILGUN_DOMAIN')
 app.config['FERNET_KEY'] = os.environ.get('FERNET_KEY')
 app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
 
-db = SqliteDatabase('/data/data.db')
+# db = SqliteDatabase('/data/data.db')
 
-class BaseModel(Model):
-    class Meta():
-        database = db
+# class BaseModel(Model):
+#     class Meta():
+#         database = db
+#
+# class Signup(BaseModel):
+#     form_key = CharField(index=True)
+#     form_data = TextField()
+#     time = DateTimeField()
 
-class Signup(BaseModel):
-    form_key = CharField(index=True)
-    form_data = TextField()
-    time = DateTimeField()
+# db.connect()
+# db.create_tables([Signup], safe=True)
+# db.close()
 
-db.connect()
-db.create_tables([Signup], safe=True)
-db.close()
+def create_record(record):
+    client = boto3.client('dynamodb')
+    return client.put_item(
+        TableName = 'flask-signup-dev',
+        Item = {
+            'form_key': {
+                'S': record['form_key']
+            },
+            'time': {
+                'S': str(record['time'])
+            },
+            'form_data': {
+                'S': json.dumps(record['form_data'])
+            },
+        },
+    )
+
+def query_records(form_key):
+
 
 def generate_secret_key():
     """Generate a random secret key."""
@@ -120,15 +141,15 @@ def form_data_to_text(form_data):
         k + ':\n' + v + '\n\n' for k, v in form_data.items()
     )
 
-@app.before_request
-def before_request():
-    g.db = db
-    g.db.connect()
-
-@app.after_request
-def after_request(request):
-    g.db.close()
-    return request
+# @app.before_request
+# def before_request():
+#     g.db = db
+#     g.db.connect()
+#
+# @app.after_request
+# def after_request(request):
+#     g.db.close()
+#     return request
 
 @app.route('/')
 def index():

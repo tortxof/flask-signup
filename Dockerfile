@@ -1,4 +1,4 @@
-FROM python:3.5
+FROM python:3.6
 MAINTAINER Daniel Jones <tortxof@gmail.com>
 
 RUN groupadd -r docker && useradd -r -g docker docker
