@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Signup</title>
-  <link rel="stylesheet" href="/static/components/bootstrap/dist/css/bootstrap.min.css" charset="utf-8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components/bootstrap/dist/css/bootstrap.min.css') }}" charset="utf-8">
 </head>
 <body>
   <nav class="navbar navbar-inverse navbar-static-top">
@@ -30,8 +30,8 @@
   <div class="container">
     {% block content %}{% endblock %}
   </div>
-  <script src="/static/components/jquery/dist/jquery.min.js" charset="utf-8"></script>
-  <script src="/static/components/bootstrap/dist/js/bootstrap.min.js" charset="utf-8"></script>
-  <script src="/static/app.js" charset="utf-8"></script>
+  <script src="{{ url_for('static', filename='components/jquery/dist/jquery.min.js') }}" charset="utf-8"></script>
+  <script src="{{ url_for('static', filename='components/bootstrap/dist/js/bootstrap.min.js') }}" charset="utf-8"></script>
+  <script src="{{ url_for('static', filename='app.js') }}" charset="utf-8"></script>
 </body>
 </html>
