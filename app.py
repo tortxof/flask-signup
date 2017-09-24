@@ -9,6 +9,7 @@ import secrets
 from flask import (
     Flask, request, redirect, url_for, g, render_template, jsonify
 )
+from flask_s3 import FlaskS3
 import boto3
 import requests
 from itsdangerous import Serializer, URLSafeSerializer, BadSignature
@@ -22,6 +23,17 @@ app.config['MAILGUN_API_KEY'] = os.environ.get('MAILGUN_API_KEY')
 app.config['MAILGUN_DOMAIN'] = os.environ.get('MAILGUN_DOMAIN')
 app.config['FERNET_KEY'] = os.environ.get('FERNET_KEY')
 app.config['DDB_TABLE_NAME'] = os.environ.get('DDB_TABLE_NAME')
+app.config['FLASKS3_BUCKET_NAME'] = os.environ.get('FLASKS3_BUCKET_NAME')
+app.config['FLASKS3_GZIP'] = True
+if 'FLASKS3_DEBUG' in os.environ:
+    app.config['FLASKS3_DEBUG'] = True
+
+s3 = FlaskS3(app)
+
+def upload_static(zappa_settings):
+    from flask_s3 import create_all
+    app.config['FLASKS3_BUCKET_NAME'] = zappa_settings.aws_environment_variables['FLASKS3_BUCKET_NAME']
+    create_all(app)
 
 def create_record(record):
     client = boto3.client('dynamodb')

@@ -1,4 +1,5 @@
 flask
+flask-s3
 boto3
 requests
 cryptography
