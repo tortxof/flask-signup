@@ -1,16 +1,14 @@
-#! /usr/bin/env python3
-
 import os
-import datetime
+import time
+from datetime import datetime
 import json
 import hmac
 import base64
+import secrets
 
 from flask import (
     Flask, request, redirect, url_for, g, render_template, jsonify
 )
-# from peewee import SqliteDatabase, Model, CharField, TextField, DateTimeField
-# from playhouse.shortcuts import model_to_dict
 import boto3
 import requests
 from itsdangerous import Serializer, URLSafeSerializer, BadSignature
@@ -23,41 +21,51 @@ app.config['APP_URL'] = os.environ.get('APP_URL')
 app.config['MAILGUN_API_KEY'] = os.environ.get('MAILGUN_API_KEY')
 app.config['MAILGUN_DOMAIN'] = os.environ.get('MAILGUN_DOMAIN')
 app.config['FERNET_KEY'] = os.environ.get('FERNET_KEY')
-app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
-
-# db = SqliteDatabase('/data/data.db')
-
-# class BaseModel(Model):
-#     class Meta():
-#         database = db
-#
-# class Signup(BaseModel):
-#     form_key = CharField(index=True)
-#     form_data = TextField()
-#     time = DateTimeField()
-
-# db.connect()
-# db.create_tables([Signup], safe=True)
-# db.close()
+app.config['DDB_TABLE_NAME'] = os.environ.get('DDB_TABLE_NAME')
 
 def create_record(record):
-    client = boto3.client('dynamodb')
-    return client.put_item(
-        TableName = 'flask-signup-dev',
+    client = boto3.client('dynamodb', region_name='us-east-1')
+    record_id = secrets.token_urlsafe(12)
+    client.put_item(
+        TableName = app.config['DDB_TABLE_NAME'],
         Item = {
+            'id': {
+                'S': record_id
+            },
             'form_key': {
                 'S': record['form_key']
             },
-            'time': {
-                'S': str(record['time'])
+            'date': {
+                'N': str(record['date'])
             },
             'form_data': {
-                'S': json.dumps(record['form_data'])
+                'S': record['form_data']
             },
         },
     )
+    return get_record(record_id)
+
+def get_record(record_id):
+    client = boto3.client('dynamodb', region_name='us-east-1')
+    return client.get_item(
+        TableName = app.config['DDB_TABLE_NAME'],
+        Key = {
+            'id': {'S': record_id},
+        },
+        ConsistentRead = True,
+    )
+
 
 def query_records(form_key):
+    client = boto3.client('dynamodb', region_name='us-east-1')
+    return client.query(
+        TableName = app.config['DDB_TABLE_NAME'],
+        IndexName = 'form_key-date-index',
+        ExpressionAttributeValues = {
+            ':form_key': {'S': form_key}
+        },
+        KeyConditionExpression = 'form_key = :form_key',
+    )
 
 
 def generate_secret_key():
@@ -115,7 +123,7 @@ def send_email_token(email_address, email_token):
         },
     )
 
-def send_form_email(email_address, form_key, form_data, time):
+def send_form_email(email_address, form_key, form_data, date):
     requests.post(
         (
             'https://api.mailgun.net/v3/{domain}/messages'
@@ -182,17 +190,14 @@ def get_form_data():
         else:
             user_secret_key = request.form.get('secret_key')
         user_form_key = generate_form_key(user_secret_key)
-        signups = (
-            Signup.select()
-            .where(Signup.form_key == user_form_key)
-        )
+        signups = query_records(user_form_key)
         return jsonify(
             records = [
                 {
-                    **json.loads(record.form_data),
-                    **{'time': record.time.isoformat()}
+                    'form_data': json.loads(record['form_data']['S']),
+                    'date': datetime.utcfromtimestamp(float(record['date']['N'])).isoformat(),
                 }
-                for record in signups
+                for record in signups['Items']
             ]
         ), {'Access-Control-Allow-Origin': '*'}
     else:
@@ -242,19 +247,18 @@ def signup(form_key):
         )
     else:
         verified_email_token = False
-    signup = Signup.create(
-        form_key = form_key,
-        form_data = json.dumps(request.form.to_dict()),
-        time = datetime.datetime.utcnow()
+    signup = create_record({
+        'form_key': form_key,
+        'form_data': json.dumps(request.form.to_dict()),
+        'date': time.time(),
+    })
+    if verified_email_token and verified_email_token['form_key'] == form_key:
+        send_form_email(
+            email_address = verified_email_token['email'],
+            form_key = verified_email_token['form_key'],
+            form_data = json.loads(signup['Item']['form_data']['S']),
+            date = signup['Item']['date']['N'],
         )
-    if verified_email_token:
-        if verified_email_token['form_key'] == form_key:
-            send_form_email(
-                email_address = verified_email_token['email'],
-                form_key = verified_email_token['form_key'],
-                form_data = json.loads(signup.form_data),
-                time = signup.time,
-            )
     if res_type == 'redirect':
         return redirect(
             request.args.get(
@@ -264,7 +268,7 @@ def signup(form_key):
         )
     elif res_type == 'json':
         return jsonify(
-            json.loads(model_to_dict(signup)['form_data'])
+            json.loads(signup['Item']['form_data']['S'])
         ), {'Access-Control-Allow-Origin': '*'}
 
 if __name__ == '__main__':
