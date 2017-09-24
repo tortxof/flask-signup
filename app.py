@@ -149,16 +149,6 @@ def form_data_to_text(form_data):
         k + ':\n' + v + '\n\n' for k, v in form_data.items()
     )
 
-# @app.before_request
-# def before_request():
-#     g.db = db
-#     g.db.connect()
-#
-# @app.after_request
-# def after_request(request):
-#     g.db.close()
-#     return request
-
 @app.route('/')
 def index():
     return render_template('index.html')
