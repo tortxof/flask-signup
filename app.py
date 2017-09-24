@@ -24,7 +24,7 @@ app.config['FERNET_KEY'] = os.environ.get('FERNET_KEY')
 app.config['DDB_TABLE_NAME'] = os.environ.get('DDB_TABLE_NAME')
 
 def create_record(record):
-    client = boto3.client('dynamodb', region_name='us-east-1')
+    client = boto3.client('dynamodb')
     record_id = secrets.token_urlsafe(12)
     client.put_item(
         TableName = app.config['DDB_TABLE_NAME'],
@@ -46,7 +46,7 @@ def create_record(record):
     return get_record(record_id)
 
 def get_record(record_id):
-    client = boto3.client('dynamodb', region_name='us-east-1')
+    client = boto3.client('dynamodb')
     return client.get_item(
         TableName = app.config['DDB_TABLE_NAME'],
         Key = {
